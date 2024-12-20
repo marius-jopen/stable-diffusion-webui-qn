@@ -1,3 +1,9 @@
+# Stable Diffusion web UI Quantum Noise
+
+
+
+
+
 # Stable Diffusion web UI
 A web interface for Stable Diffusion, implemented using Gradio library.
 

@@ -30,7 +30,7 @@ notification.mp3
 /SwinIR
 /textual_inversion
 .vscode
-/extensions
+/extensions/*
 /test/stdout.txt
 /test/stderr.txt
 /cache.json*
@@ -43,3 +43,5 @@ notification.mp3
 trace.json
 /sysinfo-????-??-??-??-??.json
 /input_quantum-noise/*
+!extensions/quantum-noise-control/
+!extensions/quantum-noise-control/*

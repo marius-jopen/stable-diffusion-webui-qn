@@ -1,0 +1,1 @@
+print("Quantum Noise Control extension installed")

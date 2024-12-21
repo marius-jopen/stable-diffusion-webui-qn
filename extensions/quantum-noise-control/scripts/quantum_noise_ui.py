@@ -9,6 +9,8 @@ from modules.rng_qn_config import DEFAULT_RNG_MODE, NOISE_SETTINGS  # Import the
 # Global variable to store pending changes
 pending_mode = DEFAULT_RNG_MODE  # Initialize with default from config
 pending_norm_strength = NOISE_SETTINGS["norm_strength"]
+pending_option = "1"  # Default option
+pending_selected_file = None
 
 def get_current_mode():
     global pending_mode
@@ -35,12 +37,20 @@ def update_norm_strength(value):
     print(f"[QN EXTENSION] Pending norm_strength update to: {pending_norm_strength}")
     return value
 
-def save_settings(norm_value=None):
-    global pending_mode, pending_norm_strength
+def update_option(value):
+    global pending_option
+    pending_option = value
+    print(f"[QN EXTENSION] Pending option update to: {pending_option}")
+    return value
+
+def save_settings(norm_value=None, option_value=None):
+    global pending_mode, pending_norm_strength, pending_selected_file
     
     # Update pending values from inputs
     if norm_value is not None:
         pending_norm_strength = float(norm_value)
+    if option_value is not None:
+        pending_selected_file = option_value
     
     # Actually apply the pending changes
     from modules.rng_qn_load import _current_norm_strength
@@ -49,12 +59,40 @@ def save_settings(norm_value=None):
     # Update the norm strength
     rng_qn_load._current_norm_strength = pending_norm_strength
     
+    # Update the selected file globally
+    noise_file_path = os.path.join("input_quantum-noise", pending_selected_file)
+    rng_qn_load.NOISE_FILE = noise_file_path
+    
     print(f"[QN EXTENSION] Saving settings...")
     print(f"[QN EXTENSION] Current mode: {pending_mode}")
     print(f"[QN EXTENSION] Applied norm_strength: {pending_norm_strength}")
-    result = f"Current mode: {pending_mode}, Norm Strength: {pending_norm_strength}"
-    print(f"[QN EXTENSION] Returning status: {result}")
+    print(f"[QN EXTENSION] Applied quantum noise file path: {noise_file_path}")
+    print(f"[QN EXTENSION] Applied quantum noise filename: {pending_selected_file}")
+    
+    result = f"Current mode: {pending_mode}\nNorm Strength: {pending_norm_strength}\nSelected File: {pending_selected_file}\nFull path: {noise_file_path}"
     return result
+
+def get_quantum_noise_files():
+    folder_path = "input_quantum-noise"
+    try:
+        # Ensure the folder exists
+        if not os.path.exists(folder_path):
+            print(f"[QN EXTENSION] Warning: {folder_path} directory not found")
+            return ["1", "2", "3"]  # fallback to default values
+        
+        # Get all files in the directory
+        files = [f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]
+        
+        if not files:
+            print(f"[QN EXTENSION] Warning: No files found in {folder_path}")
+            return ["1", "2", "3"]  # fallback to default values
+            
+        print(f"[QN EXTENSION] Found files: {files}")
+        return files
+        
+    except Exception as e:
+        print(f"[QN EXTENSION] Error reading directory: {e}")
+        return ["1", "2", "3"]  # fallback to default values
 
 def create_ui():
     print("[QN EXTENSION] Starting UI creation")
@@ -82,6 +120,12 @@ def create_ui():
                     interactive=True,
                     release=True
                 )
+                option_dropdown = gr.Dropdown(
+                    choices=get_quantum_noise_files(),
+                    value=get_quantum_noise_files()[0] if get_quantum_noise_files() else "1",
+                    label="Select Quantum Noise File",
+                    interactive=True
+                )
             save_button = gr.Button(value="Save Settings")
             result = gr.Textbox(label="Status", interactive=False)
             
@@ -99,7 +143,7 @@ def create_ui():
         
         save_button.click(
             fn=save_settings,
-            inputs=[norm_strength],
+            inputs=[norm_strength, option_dropdown],
             outputs=[result]
         )
         

@@ -113,20 +113,24 @@ Output: raw quantum noise tensor or None if loading fails
 Used by: load_quantum_noise()
 Purpose: Loads raw quantum noise data from the specified file path
 """
-def load_raw_quantum_noise():
+def load_raw_quantum_noise(selected_file=None):
     """Load the raw quantum noise from file"""
-    print(f"[QUANTUM NOISE] Using noise file: {NOISE_FILE}")
+    # Use the selected file if provided, otherwise fall back to default NOISE_FILE
+    noise_path = os.path.join("input_quantum-noise", selected_file) if selected_file else NOISE_FILE
+    print(f"[QUANTUM NOISE] Loading noise file: {selected_file if selected_file else 'default'}")
+    print(f"[QUANTUM NOISE] Full path: {noise_path}")
     
-    if not os.path.exists(NOISE_FILE):
-        print(f"[QUANTUM NOISE] Error: File not found at: {NOISE_FILE}")
+    if not os.path.exists(noise_path):
+        print(f"[QUANTUM NOISE] Error: File not found at: {noise_path}")
         return None
         
     try:
-        saved_noise = torch.load(NOISE_FILE, map_location='cpu')
-        print(f"[QUANTUM NOISE] Successfully loaded noise shape: {saved_noise.shape}")
+        saved_noise = torch.load(noise_path, map_location='cpu')
+        print(f"[QUANTUM NOISE] Successfully loaded noise from file: {os.path.basename(noise_path)}")
+        print(f"[QUANTUM NOISE] Noise shape: {saved_noise.shape}")
         return saved_noise
     except Exception as e:
-        print(f"[QUANTUM NOISE] Error loading noise file: {str(e)}")
+        print(f"[QUANTUM NOISE] Error loading noise file {os.path.basename(noise_path)}: {str(e)}")
         return None
 
 """
@@ -148,10 +152,19 @@ def prepare_quantum_noise(saved_noise, shape, device,
     
     global _current_norm_strength
     
+    print(f"[QUANTUM NOISE] Preparing noise with settings:")
+    print(f"[QUANTUM NOISE] - Scale Y: {scale_y}")
+    print(f"[QUANTUM NOISE] - Normalization: {normalization}")
+    print(f"[QUANTUM NOISE] - Power: {power}")
+    print(f"[QUANTUM NOISE] - Gaussian Mix: {gaussian_mix}")
+    print(f"[QUANTUM NOISE] - High Pass: {high_pass}")
+    print(f"[QUANTUM NOISE] - Low Pass: {low_pass}")
+    print(f"[QUANTUM NOISE] - Num Scales: {num_scales}")
+    
     # Use the global norm_strength if none provided
     if norm_strength is None:
         norm_strength = _current_norm_strength
-        print(f"[QUANTUM NOISE] Using norm_strength: {norm_strength}")
+    print(f"[QUANTUM NOISE] - Norm Strength: {norm_strength}")
     
     # Check if we have valid noise data
     if saved_noise is None:
@@ -209,7 +222,7 @@ Output: prepared quantum noise tensor
 Used by: External calls (main entry point)
 Purpose: Convenience function that combines loading and preparation steps
 """
-def load_quantum_noise(shape, device):
+def load_quantum_noise(shape, device, selected_file=None):
     """Load and prepare quantum noise from file"""
-    raw_noise = load_raw_quantum_noise()
+    raw_noise = load_raw_quantum_noise(selected_file)
     return prepare_quantum_noise(raw_noise, shape, device)

@@ -7,6 +7,10 @@ from modules.rng_qn_config import QUANTUM_NOISE_PATH, NOISE_SETTINGS
 _NOISE_PATH = QUANTUM_NOISE_PATH
 NOISE_FILE = os.path.join(*_NOISE_PATH.split("\\"))
 
+# Add at the top with other globals
+global _current_norm_strength
+_current_norm_strength = NOISE_SETTINGS["norm_strength"]
+
 """
 Input: noise tensor, normalization method (str), strength (float)
 Output: normalized noise tensor
@@ -134,13 +138,20 @@ Purpose: Main processing pipeline for quantum noise, applying all modifications
 def prepare_quantum_noise(saved_noise, shape, device,
                         scale_y=NOISE_SETTINGS["scale_y"],
                         normalization=NOISE_SETTINGS["normalization"],
-                        norm_strength=NOISE_SETTINGS["norm_strength"],
+                        norm_strength=None,  # Make this parameter optional
                         power=NOISE_SETTINGS["power"],
                         gaussian_mix=NOISE_SETTINGS["gaussian_mix"],
                         high_pass=NOISE_SETTINGS["high_pass"],
                         low_pass=NOISE_SETTINGS["low_pass"],
                         num_scales=NOISE_SETTINGS["num_scales"]):
     """Enhanced quantum noise preparation with all modifications"""
+    
+    global _current_norm_strength
+    
+    # Use the global norm_strength if none provided
+    if norm_strength is None:
+        norm_strength = _current_norm_strength
+        print(f"[QUANTUM NOISE] Using norm_strength: {norm_strength}")
     
     # Check if we have valid noise data
     if saved_noise is None:
@@ -166,6 +177,7 @@ def prepare_quantum_noise(saved_noise, shape, device,
     
     # Apply modifications in sequence
     noise = normalize_noise(noise, method=normalization, strength=norm_strength)
+    print(f"[QUANTUM NOISE] After normalization - mean: {noise.mean():.4f}, std: {noise.std():.4f}")
     
     # 2. Power transform
     if power != 1.0:

@@ -1,6 +1,6 @@
 from modules import devices, rng_philox, shared
-from modules.rng_qn_load import load_raw_quantum_noise, prepare_quantum_noise, load_quantum_noise
-from modules.rng_qn_config import DEFAULT_RNG_MODE
+from modules.rng_qn_load import load_raw_quantum_noise, prepare_quantum_noise, load_quantum_noise, blend_noise
+from modules.rng_qn_config import DEFAULT_RNG_MODE, BLEND_SETTINGS
 
 import torch
 
@@ -171,35 +171,58 @@ def slerp(val, low, high):
 CUSTOM FUNCTIONS FOR QUANTUM NOISE
 """
 
+
 """
 Input: seed (int), shape (tuple), generator (optional)
 Output: quantum noise tensor
 Used by: ImageRNG.first() when mode="custom"
-Purpose: Loads quantum noise from file for first step
+Purpose: Loads quantum noise from file for first step with optional blending
 """
 def randnCustom(seed, shape, generator=None):
     """USED IN FIRST STEP: Loads quantum noise from file"""
     print(f"[QUANTUM NOISE -> randnCustom] Loading quantum noise")
+    blend_config = BLEND_SETTINGS["first_step"]
     
     try:
+        # Get quantum noise
         quantum_noise = load_quantum_noise(shape, devices.device)
-        print(f"[QUANTUM NOISE] Successfully loaded quantum noise from file")
-        return quantum_noise
+        
+        # If we want pure quantum noise, return it directly
+        if blend_config["blend_ratio"] == 0.0:
+            print("[QUANTUM NOISE] Using pure quantum noise")
+            return quantum_noise
+            
+        # Generate standard noise
+        manual_seed(seed)
+        if shared.opts.randn_source == "NV":
+            standard_noise = torch.asarray((generator or nv_rng).randn(shape), device=devices.device)
+        elif shared.opts.randn_source == "CPU" or devices.device.type == 'mps':
+            standard_noise = torch.randn(shape, device=devices.cpu, generator=generator).to(devices.device)
+        else:
+            standard_noise = torch.randn(shape, device=devices.device, generator=generator)
+            
+        # Blend the noises using specified mode
+        blended_noise = blend_noise(quantum_noise, standard_noise, 
+                                  blend_config["blend_ratio"], 
+                                  blend_config["blend_mode"])
+        print(f"[QUANTUM NOISE] Blended noise with ratio {blend_config['blend_ratio']} using {blend_config['blend_mode']} mode")
+        return blended_noise
+        
     except Exception as e:
         print(f"[QUANTUM NOISE] Error loading quantum noise: {str(e)}, falling back to standard noise")
-        # Fallback to standard noise generation if loading fails
         return randn(seed, shape, generator)
 
 
 """
-Input: shape (tuple), generator
+Input: shape (tuple), generator, blend_ratio (float), blend_mode (str)
 Output: quantum noise tensor
 Used by: ImageRNG.next() when mode="custom"
-Purpose: Creates offset version of quantum noise for subsequent steps
+Purpose: Creates offset version of quantum noise for subsequent steps with optional blending
 """
 def randn_without_seedCustom(shape, generator):
     """USED IN STEPS 2-20: Creates offset version of quantum noise"""
     print(f"[QUANTUM NOISE -> randn_without_seedCustom] Creating quantum noise")
+    blend_config = BLEND_SETTINGS["subsequent_steps"]
     
     try:
         # Load the full quantum noise
@@ -215,12 +238,30 @@ def randn_without_seedCustom(shape, generator):
         
         # Take a slice starting from the random offset
         saved_noise = saved_noise[..., y_offset:y_offset + shape[-2], x_offset:x_offset + shape[-1]]
-        
-        return prepare_quantum_noise(saved_noise, shape, devices.device)
+        quantum_noise = prepare_quantum_noise(saved_noise, shape, devices.device)
+
+        # If we want pure quantum noise, return it directly
+        if blend_config["blend_ratio"] == 0.0:
+            print("[QUANTUM NOISE] Using pure quantum noise")
+            return quantum_noise
+
+        # Generate standard noise
+        if shared.opts.randn_source == "NV":
+            standard_noise = torch.asarray((generator).randn(shape), device=devices.device)
+        elif shared.opts.randn_source == "CPU" or devices.device.type == 'mps':
+            standard_noise = torch.randn(shape, device=devices.cpu, generator=generator).to(devices.device)
+        else:
+            standard_noise = torch.randn(shape, device=devices.device, generator=generator)
+
+        # Blend the noises using specified mode
+        blended_noise = blend_noise(quantum_noise, standard_noise, 
+                                  blend_config["blend_ratio"], 
+                                  blend_config["blend_mode"])
+        print(f"[QUANTUM NOISE] Blended noise with ratio {blend_config['blend_ratio']} using {blend_config['blend_mode']} mode")
+        return blended_noise
         
     except Exception as e:
         print(f"[QUANTUM NOISE] Error processing quantum noise: {str(e)}, falling back to standard noise")
-        # Fallback to standard noise generation if anything fails
         return randn_without_seed(shape, generator)
 
 
@@ -337,3 +378,31 @@ devices.randn_local = randn_local
 devices.randn_like = randn_like
 devices.randn_without_seed = randn_without_seed
 devices.manual_seed = manual_seed
+
+def blend_noise(quantum_noise, standard_noise, blend_ratio, mode="normal"):
+    """Blends quantum and standard noise using different blend modes
+    Args:
+        quantum_noise: Quantum noise tensor
+        standard_noise: Standard noise tensor
+        blend_ratio: 0.0 = pure quantum, 1.0 = pure random
+        mode: Blend mode ("normal", "screen", "multiply", "difference")
+    """
+    if blend_ratio == 0.0:
+        return quantum_noise
+    if blend_ratio == 1.0:
+        return standard_noise
+
+    if mode == "normal":
+        return (1 - blend_ratio) * quantum_noise + blend_ratio * standard_noise
+    elif mode == "screen":
+        # Screen blend: 1 - (1-a)(1-b)
+        return 1 - (1 - quantum_noise) * (1 - standard_noise) * blend_ratio
+    elif mode == "multiply":
+        # Interpolate between quantum and (quantum * standard)
+        return quantum_noise * (1 - blend_ratio + blend_ratio * standard_noise)
+    elif mode == "difference":
+        # Interpolate between quantum and |quantum - standard|
+        return quantum_noise * (1 - blend_ratio) + torch.abs(quantum_noise - standard_noise) * blend_ratio
+    else:
+        print(f"[QUANTUM NOISE] Unknown blend mode {mode}, falling back to normal")
+        return (1 - blend_ratio) * quantum_noise + blend_ratio * standard_noise

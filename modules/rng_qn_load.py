@@ -226,3 +226,33 @@ def load_quantum_noise(shape, device, selected_file=None):
     """Load and prepare quantum noise from file"""
     raw_noise = load_raw_quantum_noise(selected_file)
     return prepare_quantum_noise(raw_noise, shape, device)
+
+
+
+def blend_noise(quantum_noise, standard_noise, blend_ratio, mode="difference"):
+    """Blends quantum and standard noise using different blend modes
+    Args:
+        quantum_noise: Quantum noise tensor
+        standard_noise: Standard noise tensor
+        blend_ratio: 0.0 = pure quantum, 1.0 = pure random
+        mode: Blend mode ("normal", "screen", "multiply", "difference")
+    """
+    if blend_ratio == 0.0:
+        return quantum_noise
+    if blend_ratio == 1.0:
+        return standard_noise
+
+    if mode == "normal":
+        return (1 - blend_ratio) * quantum_noise + blend_ratio * standard_noise
+    elif mode == "screen":
+        # Screen blend: 1 - (1-a)(1-b)
+        return 1 - (1 - quantum_noise) * (1 - standard_noise) * blend_ratio
+    elif mode == "multiply":
+        # Interpolate between quantum and (quantum * standard)
+        return quantum_noise * (1 - blend_ratio + blend_ratio * standard_noise)
+    elif mode == "difference":
+        # Interpolate between quantum and |quantum - standard|
+        return quantum_noise * (1 - blend_ratio) + torch.abs(quantum_noise - standard_noise) * blend_ratio
+    else:
+        print(f"[QUANTUM NOISE] Unknown blend mode {mode}, falling back to normal")
+        return (1 - blend_ratio) * quantum_noise + blend_ratio * standard_noise

@@ -1,5 +1,5 @@
 from modules import devices, rng_philox, shared
-from modules.rng_qn_load import load_raw_quantum_noise, prepare_quantum_noise
+from modules.rng_qn_load import load_raw_quantum_noise, prepare_quantum_noise, load_quantum_noise
 from modules.rng_qn_config import DEFAULT_RNG_MODE
 
 import torch
@@ -231,11 +231,13 @@ MAIN FUNCTION FROM STABLE DIFFUSION
 
 class ImageRNG:
     """MAIN CLASS: Manages noise generation for the entire process"""
+    _instance = None
+    _current_mode = DEFAULT_RNG_MODE  # Class-level mode storage
     
     def __init__(self, shape, seeds, subseeds=None, subseed_strength=0.0, 
                  seed_resize_from_h=0, seed_resize_from_w=0, 
-                 mode=DEFAULT_RNG_MODE):
-        print(f"[IMAGE_RNG -> init] Initializing ImageRNG with shape={shape}, seeds={seeds}, mode={mode}")
+                 mode=None):  # Make mode optional
+        print(f"[IMAGE_RNG -> init] Initializing ImageRNG with shape={shape}, seeds={seeds}, mode={mode or ImageRNG._current_mode}")
         self.shape = tuple(map(int, shape))
         self.seeds = seeds
         self.subseeds = subseeds
@@ -244,8 +246,18 @@ class ImageRNG:
         self.seed_resize_from_w = seed_resize_from_w
         self.generators = [create_generator(seed) for seed in seeds]
         self.is_first = True
-        self.mode = mode
-
+        self.mode = mode if mode is not None else ImageRNG._current_mode  # Use class-level mode if none provided
+        
+        # Update singleton instance
+        ImageRNG._instance = self
+    
+    @classmethod
+    def set_mode(cls, mode):
+        """Class method to update the current mode"""
+        cls._current_mode = mode
+        if cls._instance is not None:
+            cls._instance.mode = mode
+    
     def first(self):
         print("[IMAGE_RNG -> first()] Starting ImageRNG.first() - Generating initial noise")
         print(f"[IMAGE_RNG -> first()] MODE: {self.mode}")

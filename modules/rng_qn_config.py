@@ -3,7 +3,7 @@ Configuration settings for quantum noise generation and processing
 """
 
 # Default RNG mode
-DEFAULT_RNG_MODE = "custom"
+DEFAULT_RNG_MODE = "classic"
 
 # Quantum noise file path (relative to repo root)
 QUANTUM_NOISE_PATH = r"input_quantum-noise\qn-full-high-latent.pt"

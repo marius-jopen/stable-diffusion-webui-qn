@@ -1,9 +1,10 @@
 import torch
 import os
 from pathlib import Path
+from modules.rng_qn_config import QUANTUM_NOISE_PATH, NOISE_SETTINGS
 
 # Primary quantum noise directory - relative to repo root
-_NOISE_PATH = r"input_quantum-noise\qn-full-high-latent.pt"
+_NOISE_PATH = QUANTUM_NOISE_PATH
 NOISE_FILE = os.path.join(*_NOISE_PATH.split("\\"))
 
 """
@@ -130,15 +131,15 @@ Output: processed quantum noise tensor
 Used by: load_quantum_noise() and external calls
 Purpose: Main processing pipeline for quantum noise, applying all modifications
 """
-def prepare_quantum_noise(saved_noise, shape, device, 
-                        scale_y=1.0,        
-                        normalization="gaussian",
-                        norm_strength=0.0,  
-                        power=1.0,          
-                        gaussian_mix=0.0,    
-                        high_pass=0.0,      
-                        low_pass=1.0,       
-                        num_scales=1):      
+def prepare_quantum_noise(saved_noise, shape, device,
+                        scale_y=NOISE_SETTINGS["scale_y"],
+                        normalization=NOISE_SETTINGS["normalization"],
+                        norm_strength=NOISE_SETTINGS["norm_strength"],
+                        power=NOISE_SETTINGS["power"],
+                        gaussian_mix=NOISE_SETTINGS["gaussian_mix"],
+                        high_pass=NOISE_SETTINGS["high_pass"],
+                        low_pass=NOISE_SETTINGS["low_pass"],
+                        num_scales=NOISE_SETTINGS["num_scales"]):
     """Enhanced quantum noise preparation with all modifications"""
     
     # Check if we have valid noise data

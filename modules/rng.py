@@ -1,5 +1,6 @@
 from modules import devices, rng_philox, shared
 from modules.rng_qn_load import load_raw_quantum_noise, prepare_quantum_noise
+from modules.rng_qn_config import DEFAULT_RNG_MODE
 
 import torch
 
@@ -231,7 +232,9 @@ MAIN FUNCTION FROM STABLE DIFFUSION
 class ImageRNG:
     """MAIN CLASS: Manages noise generation for the entire process"""
     
-    def __init__(self, shape, seeds, subseeds=None, subseed_strength=0.0, seed_resize_from_h=0, seed_resize_from_w=0, mode="custom"):
+    def __init__(self, shape, seeds, subseeds=None, subseed_strength=0.0, 
+                 seed_resize_from_h=0, seed_resize_from_w=0, 
+                 mode=DEFAULT_RNG_MODE):
         print(f"[IMAGE_RNG -> init] Initializing ImageRNG with shape={shape}, seeds={seeds}, mode={mode}")
         self.shape = tuple(map(int, shape))
         self.seeds = seeds

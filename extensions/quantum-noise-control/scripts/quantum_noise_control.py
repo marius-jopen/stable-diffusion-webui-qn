@@ -1,6 +1,14 @@
 import modules.scripts as scripts
-import gradio as gr
 from modules import script_callbacks
+import sys
+import os
+
+# Add the current directory to the Python path
+scripts_path = os.path.dirname(os.path.abspath(__file__))
+if scripts_path not in sys.path:
+    sys.path.append(scripts_path)
+
+from quantum_noise_ui import create_ui
 
 class QuantumNoiseControlScript(scripts.Script):
     def title(self):
@@ -16,10 +24,7 @@ class QuantumNoiseControlScript(scripts.Script):
         return p
 
 def on_ui_tabs():
-    with gr.Blocks(analytics_enabled=False) as quantum_noise_control:
-        with gr.Row():
-            gr.HTML("Quantum Noise Control will appear here")
-            
+    quantum_noise_control = create_ui()
     return [(quantum_noise_control, "Quantum Noise Control", "quantum_noise_control")]
 
 # Register the extension

@@ -1,5 +1,10 @@
 # Stable Diffusion web UI Quantum Noise
 
+Next steps:
+
+- Find ControlNet settings which fit well to the videos and the QN noise
+- Use the API that I can create many videos in a row with different quantum noises settings and different input videos
+
 
 # Stable Diffusion web UI
 A web interface for Stable Diffusion, implemented using Gradio library.

@@ -12,13 +12,13 @@ QUANTUM_NOISE_PATH = r"input_quantum-noise\qn-full-high-latent.pt"
 BLEND_SETTINGS = {
     # First step blending (randnCustom)
     "first_step": {
-        "blend_ratio": 0.5,     # Range: 0.0 to 1.0 (0.0 = pure quantum, 1.0 = pure standard)
+        "blend_ratio": 0.0,     # Range: 0.0 to 1.0 (0.0 = pure quantum, 1.0 = pure standard)
         "blend_mode": "normal"   # Options: "normal", "screen", "multiply", "difference"
     },
     
     # Subsequent steps blending (randn_without_seedCustom)
     "subsequent_steps": {
-        "blend_ratio": 0.5,     # Range: 0.0 to 1.0 (0.0 = pure quantum, 1.0 = pure standard)
+        "blend_ratio": 0.0,     # Range: 0.0 to 1.0 (0.0 = pure quantum, 1.0 = pure standard)
         "blend_mode": "normal"   # Options: "normal", "screen", "multiply", "difference"
     }
 }

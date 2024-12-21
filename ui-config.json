@@ -1526,5 +1526,12 @@
     "quantum_noise_control/Select Option/visible": true,
     "quantum_noise_control/Select Option/value": "1",
     "quantum_noise_control/Select Quantum Noise File/visible": true,
-    "quantum_noise_control/Select Quantum Noise File/value": "qn-full-high-latent.pt"
+    "quantum_noise_control/Select Quantum Noise File/value": "qn-full-high-latent.pt",
+    "quantum_noise_control/Blend Ratio (0=pure quantum, 1=pure standard)/visible": true,
+    "quantum_noise_control/Blend Ratio (0=pure quantum, 1=pure standard)/value": 0.5,
+    "quantum_noise_control/Blend Ratio (0=pure quantum, 1=pure standard)/minimum": 0.0,
+    "quantum_noise_control/Blend Ratio (0=pure quantum, 1=pure standard)/maximum": 1.0,
+    "quantum_noise_control/Blend Ratio (0=pure quantum, 1=pure standard)/step": 0.01,
+    "quantum_noise_control/Blend Mode/visible": true,
+    "quantum_noise_control/Blend Mode/value": "normal"
 }

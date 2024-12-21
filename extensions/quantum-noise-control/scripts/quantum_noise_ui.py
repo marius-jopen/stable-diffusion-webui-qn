@@ -4,13 +4,15 @@ import sys
 import importlib
 from modules import rng, rng_qn_config
 import json
-from modules.rng_qn_config import DEFAULT_RNG_MODE, NOISE_SETTINGS  # Import the default mode
+from modules.rng_qn_config import DEFAULT_RNG_MODE, NOISE_SETTINGS, BLEND_SETTINGS  # Import the default mode
 
 # Global variable to store pending changes
 pending_mode = DEFAULT_RNG_MODE  # Initialize with default from config
 pending_norm_strength = NOISE_SETTINGS["norm_strength"]
 pending_option = "1"  # Default option
 pending_selected_file = None
+pending_blend_ratio = BLEND_SETTINGS["first_step"]["blend_ratio"]
+pending_blend_mode = BLEND_SETTINGS["first_step"]["blend_mode"]
 
 def get_current_mode():
     global pending_mode
@@ -43,18 +45,35 @@ def update_option(value):
     print(f"[QN EXTENSION] Pending option update to: {pending_option}")
     return value
 
-def save_settings(norm_value=None, option_value=None):
-    global pending_mode, pending_norm_strength, pending_selected_file
+def update_blend_ratio(value):
+    global pending_blend_ratio
+    pending_blend_ratio = float(value)
+    print(f"[QN EXTENSION] Pending blend_ratio update to: {pending_blend_ratio}")
+    return value
+
+def update_blend_mode(value):
+    global pending_blend_mode
+    pending_blend_mode = value
+    print(f"[QN EXTENSION] Pending blend_mode update to: {pending_blend_mode}")
+    return value
+
+def save_settings(norm_value=None, option_value=None, blend_ratio_value=None, blend_mode_value=None):
+    global pending_mode, pending_norm_strength, pending_selected_file, pending_blend_ratio, pending_blend_mode
     
     # Update pending values from inputs
     if norm_value is not None:
         pending_norm_strength = float(norm_value)
     if option_value is not None:
         pending_selected_file = option_value
+    if blend_ratio_value is not None:
+        pending_blend_ratio = float(blend_ratio_value)
+    if blend_mode_value is not None:
+        pending_blend_mode = blend_mode_value
     
     # Actually apply the pending changes
     from modules.rng_qn_load import _current_norm_strength
     import modules.rng_qn_load as rng_qn_load
+    from modules.rng_qn_config import BLEND_SETTINGS
     
     # Update the norm strength
     rng_qn_load._current_norm_strength = pending_norm_strength
@@ -63,13 +82,21 @@ def save_settings(norm_value=None, option_value=None):
     noise_file_path = os.path.join("input_quantum-noise", pending_selected_file)
     rng_qn_load.NOISE_FILE = noise_file_path
     
+    # Update blend settings for both first and subsequent steps
+    BLEND_SETTINGS["first_step"]["blend_ratio"] = pending_blend_ratio
+    BLEND_SETTINGS["first_step"]["blend_mode"] = pending_blend_mode
+    BLEND_SETTINGS["subsequent_steps"]["blend_ratio"] = pending_blend_ratio
+    BLEND_SETTINGS["subsequent_steps"]["blend_mode"] = pending_blend_mode
+    
     print(f"[QN EXTENSION] Saving settings...")
     print(f"[QN EXTENSION] Current mode: {pending_mode}")
     print(f"[QN EXTENSION] Applied norm_strength: {pending_norm_strength}")
     print(f"[QN EXTENSION] Applied quantum noise file path: {noise_file_path}")
     print(f"[QN EXTENSION] Applied quantum noise filename: {pending_selected_file}")
+    print(f"[QN EXTENSION] Applied blend ratio: {pending_blend_ratio}")
+    print(f"[QN EXTENSION] Applied blend mode: {pending_blend_mode}")
     
-    result = f"Current mode: {pending_mode}\nNorm Strength: {pending_norm_strength}\nSelected File: {pending_selected_file}\nFull path: {noise_file_path}"
+    result = f"Current mode: {pending_mode}\nNorm Strength: {pending_norm_strength}\nSelected File: {pending_selected_file}\nBlend Ratio: {pending_blend_ratio}\nBlend Mode: {pending_blend_mode}"
     return result
 
 def get_quantum_noise_files():
@@ -120,6 +147,21 @@ def create_ui():
                     interactive=True,
                     release=True
                 )
+                blend_ratio = gr.Slider(
+                    minimum=0.0,
+                    maximum=1.0,
+                    value=BLEND_SETTINGS["first_step"]["blend_ratio"],
+                    step=0.01,
+                    label="Blend Ratio (0=pure quantum, 1=pure standard)",
+                    interactive=True,
+                    release=True
+                )
+                blend_mode = gr.Dropdown(
+                    choices=["normal", "screen", "multiply", "difference"],
+                    value=BLEND_SETTINGS["first_step"]["blend_mode"],
+                    label="Blend Mode",
+                    interactive=True
+                )
                 option_dropdown = gr.Dropdown(
                     choices=get_quantum_noise_files(),
                     value=get_quantum_noise_files()[0] if get_quantum_noise_files() else "1",
@@ -143,7 +185,7 @@ def create_ui():
         
         save_button.click(
             fn=save_settings,
-            inputs=[norm_strength, option_dropdown],
+            inputs=[norm_strength, option_dropdown, blend_ratio, blend_mode],
             outputs=[result]
         )
         

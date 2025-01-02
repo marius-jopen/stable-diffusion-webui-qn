@@ -230,14 +230,14 @@ def randn_without_seedCustom(shape, generator):
         if saved_noise is None:
             raise ValueError("No quantum noise data loaded")
         
-        # Generate random offsets for x and y
-        rand_tensor = torch.empty(2).to(generator.device)
-        rand_tensor.random_(generator=generator)
-        x_offset = int(rand_tensor[0].item() * (128 - shape[-1]))
-        y_offset = int(rand_tensor[1].item() * (128 - shape[-2]))
+        # Generate random batch index
+        batch_size = saved_noise.shape[0]
+        batch_idx = int(torch.randint(0, batch_size, (1,)).item())
+        print(f"[QUANTUM NOISE] Using batch index: {batch_idx} of {batch_size}")
         
-        # Take a slice starting from the random offset
-        saved_noise = saved_noise[..., y_offset:y_offset + shape[-2], x_offset:x_offset + shape[-1]]
+        # Select random batch
+        saved_noise = saved_noise[batch_idx:batch_idx+1]
+        
         quantum_noise = prepare_quantum_noise(saved_noise, shape, devices.device)
 
         # If we want pure quantum noise, return it directly

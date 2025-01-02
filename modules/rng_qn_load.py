@@ -7,9 +7,21 @@ from modules.rng_qn_config import QUANTUM_NOISE_PATH, NOISE_SETTINGS
 _NOISE_PATH = QUANTUM_NOISE_PATH
 NOISE_FILE = os.path.join(*_NOISE_PATH.split("\\"))
 
+def get_noise_file_path():
+    """Gets the full path to the quantum noise file"""
+    return NOISE_FILE
+
+def get_noise_file_name():
+    """Gets just the filename of the quantum noise file"""
+    return Path(NOISE_FILE).name
+
 # Add at the top with other globals
 global _current_norm_strength
 _current_norm_strength = NOISE_SETTINGS["norm_strength"]
+
+# Add at the top of the file
+_cached_noise = None
+_cached_noise_path = None
 
 """
 Input: noise tensor, normalization method (str), strength (float)
@@ -113,24 +125,30 @@ Output: raw quantum noise tensor or None if loading fails
 Used by: load_quantum_noise()
 Purpose: Loads raw quantum noise data from the specified file path
 """
-def load_raw_quantum_noise(selected_file=None):
-    """Load the raw quantum noise from file"""
-    # Use the selected file if provided, otherwise fall back to default NOISE_FILE
-    noise_path = os.path.join("input_quantum-noise", selected_file) if selected_file else NOISE_FILE
-    print(f"[QUANTUM NOISE] Loading noise file: {selected_file if selected_file else 'default'}")
-    print(f"[QUANTUM NOISE] Full path: {noise_path}")
+def load_raw_quantum_noise():
+    """Loads and caches quantum noise data"""
+    global _cached_noise, _cached_noise_path
     
-    if not os.path.exists(noise_path):
-        print(f"[QUANTUM NOISE] Error: File not found at: {noise_path}")
-        return None
+    noise_path = get_noise_file_path()
+    
+    # Return cached noise if available and path hasn't changed
+    if _cached_noise is not None and _cached_noise_path == noise_path:
+        return _cached_noise
         
     try:
-        saved_noise = torch.load(noise_path, map_location='cpu')
-        print(f"[QUANTUM NOISE] Successfully loaded noise from file: {os.path.basename(noise_path)}")
-        print(f"[QUANTUM NOISE] Noise shape: {saved_noise.shape}")
-        return saved_noise
+        print("[QUANTUM NOISE] Loading noise file:", get_noise_file_name())
+        print("[QUANTUM NOISE] Full path:", noise_path)
+        
+        _cached_noise = torch.load(noise_path)
+        _cached_noise_path = noise_path
+        
+        print("[QUANTUM NOISE] Successfully loaded noise from file:", get_noise_file_name())
+        print("[QUANTUM NOISE] Noise shape:", _cached_noise.shape)
+        
+        return _cached_noise
+        
     except Exception as e:
-        print(f"[QUANTUM NOISE] Error loading noise file {os.path.basename(noise_path)}: {str(e)}")
+        print(f"[QUANTUM NOISE] Error loading noise file: {str(e)}")
         return None
 
 """
@@ -215,10 +233,25 @@ Output: prepared quantum noise tensor
 Used by: External calls (main entry point)
 Purpose: Convenience function that combines loading and preparation steps
 """
-def load_quantum_noise(shape, device, selected_file=None):
-    """Load and prepare quantum noise from file"""
-    raw_noise = load_raw_quantum_noise(selected_file)
-    return prepare_quantum_noise(raw_noise, shape, device)
+def load_quantum_noise(shape, device):
+    """Loads and prepares quantum noise for use"""
+    global _cached_noise
+    
+    # Use cached noise data if available
+    saved_noise = _cached_noise if _cached_noise is not None else load_raw_quantum_noise()
+    
+    if saved_noise is None:
+        print("[QUANTUM NOISE] No valid noise data available")
+        return torch.randn(shape, device=device)
+        
+    # Select random batch for variety
+    batch_size = saved_noise.shape[0]
+    batch_idx = int(torch.randint(0, batch_size, (1,)).item())
+    
+    # Prepare the noise
+    noise = prepare_quantum_noise(saved_noise[batch_idx:batch_idx+1], shape, device)
+    
+    return noise
 
 
 

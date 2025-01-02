@@ -70,10 +70,14 @@ Used by: Not actively used (alternative implementation)
 Purpose: Alternative noise generator that doesn't affect global RNG state
 """
 def randn_local(seed, shape):
-    """NOT USED: Alternative noise generator that doesn't change global state"""
-
+    """Alternative noise generator that uses quantum noise when in custom mode"""
     print(f"[NOISE -> randn_local] randn_local - seed={seed}, shape={shape}")
 
+    if ImageRNG._current_mode == "custom":
+        print("[NOISE -> randn_local] Using quantum noise for local generation")
+        return load_quantum_noise(shape, devices.device)
+
+    # Original randn_local behavior for non-quantum mode
     if shared.opts.randn_source == "NV":
         print("[NOISE] Using NVIDIA Philox RNG generator")
         rng = rng_philox.Generator(seed)

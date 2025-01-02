@@ -184,13 +184,13 @@ def randnCustom(seed, shape, generator=None):
     blend_config = BLEND_SETTINGS["first_step"]
     
     try:
-        # Get quantum noise
+        # Get quantum noise - shape should be [C, H, W]
         quantum_noise = load_quantum_noise(shape, devices.device)
         
         # If we want pure quantum noise, return it directly
         if blend_config["blend_ratio"] == 0.0:
             print("[QUANTUM NOISE] Using pure quantum noise")
-            return quantum_noise
+            return quantum_noise.unsqueeze(0) if len(shape) == 4 else quantum_noise  # Add batch dim if needed
             
         # Generate standard noise
         manual_seed(seed)
@@ -235,15 +235,14 @@ def randn_without_seedCustom(shape, generator):
         batch_idx = int(torch.randint(0, batch_size, (1,)).item())
         print(f"[QUANTUM NOISE] Using batch index: {batch_idx} of {batch_size}")
         
-        # Select random batch
-        saved_noise = saved_noise[batch_idx:batch_idx+1]
-        
+        # Select random batch and prepare noise
+        saved_noise = saved_noise[batch_idx:batch_idx+1]  # Keep batch dimension
         quantum_noise = prepare_quantum_noise(saved_noise, shape, devices.device)
 
         # If we want pure quantum noise, return it directly
         if blend_config["blend_ratio"] == 0.0:
             print("[QUANTUM NOISE] Using pure quantum noise")
-            return quantum_noise
+            return quantum_noise.unsqueeze(0) if len(shape) == 4 else quantum_noise  # Add batch dim if needed
 
         # Generate standard noise
         if shared.opts.randn_source == "NV":

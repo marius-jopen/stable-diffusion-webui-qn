@@ -142,7 +142,7 @@ Purpose: Main processing pipeline for quantum noise, applying all modifications
 def prepare_quantum_noise(saved_noise, shape, device,
                         scale_y=NOISE_SETTINGS["scale_y"],
                         normalization=NOISE_SETTINGS["normalization"],
-                        norm_strength=None,  # Make this parameter optional
+                        norm_strength=None,
                         power=NOISE_SETTINGS["power"],
                         gaussian_mix=NOISE_SETTINGS["gaussian_mix"],
                         high_pass=NOISE_SETTINGS["high_pass"],
@@ -152,66 +152,59 @@ def prepare_quantum_noise(saved_noise, shape, device,
     
     global _current_norm_strength
     
-    print(f"[QUANTUM NOISE] Preparing noise with settings:")
-    print(f"[QUANTUM NOISE] - Scale Y: {scale_y}")
-    print(f"[QUANTUM NOISE] - Normalization: {normalization}")
-    print(f"[QUANTUM NOISE] - Power: {power}")
-    print(f"[QUANTUM NOISE] - Gaussian Mix: {gaussian_mix}")
-    print(f"[QUANTUM NOISE] - High Pass: {high_pass}")
-    print(f"[QUANTUM NOISE] - Low Pass: {low_pass}")
-    print(f"[QUANTUM NOISE] - Num Scales: {num_scales}")
-    
-    # Use the global norm_strength if none provided
     if norm_strength is None:
         norm_strength = _current_norm_strength
-    print(f"[QUANTUM NOISE] - Norm Strength: {norm_strength}")
     
-    # Check if we have valid noise data
     if saved_noise is None:
         print("[QUANTUM NOISE] No valid noise data provided to prepare_quantum_noise")
-        # Return standard normal noise instead
-        noise = torch.randn(shape, device=device)
-        return noise
+        return torch.randn(shape, device=device)
     
-    # Reshape saved_noise to ensure it's 3D (channels, height, width)
-    if len(saved_noise.shape) == 4:
-        saved_noise = saved_noise.squeeze(0)  # Remove batch dimension if present
+    # Handle batch dimension properly
+    if len(saved_noise.shape) == 5:  # [B, 1, C, H, W]
+        saved_noise = saved_noise.squeeze(1)  # Remove single channel dim -> [B, C, H, W]
     
-    # Get basic noise sample
-    if saved_noise.shape != (4, 128, 128):
-        # Resize if dimensions don't match
-        saved_noise = torch.nn.functional.interpolate(
-            saved_noise.unsqueeze(0),  # Add batch dimension for interpolation
-            size=(128, 128),
-            mode='bilinear'
-        ).squeeze(0)  # Remove batch dimension
+    # If we have a batch dimension but don't need it, take first batch
+    if len(saved_noise.shape) == 4 and len(shape) == 3:  # [B, C, H, W] -> [C, H, W]
+        saved_noise = saved_noise[0]
+    
+    # Resize if dimensions don't match
+    if saved_noise.shape[-3:] != shape[-3:]:  # Compare [C, H, W]
+        if len(saved_noise.shape) == 4:  # [B, C, H, W]
+            B = saved_noise.shape[0]
+            saved_noise = torch.nn.functional.interpolate(
+                saved_noise,
+                size=shape[-2:],  # Only pass H,W
+                mode='bilinear'
+            )
+        else:  # [C, H, W]
+            saved_noise = torch.nn.functional.interpolate(
+                saved_noise.unsqueeze(0),  # Add batch dim
+                size=shape[-2:],  # Only pass H,W
+                mode='bilinear'
+            ).squeeze(0)  # Remove batch dim
     
     noise = saved_noise * scale_y
     
-    # Apply modifications in sequence
+    # Apply all modifications as before
     noise = normalize_noise(noise, method=normalization, strength=norm_strength)
     print(f"[QUANTUM NOISE] After normalization - mean: {noise.mean():.4f}, std: {noise.std():.4f}")
     
-    # 2. Power transform
     if power != 1.0:
         noise = power_transform(noise, power)
     
-    # 3. Frequency modifications
     if high_pass > 0 or low_pass < 1.0:
         noise = frequency_modify(noise, high_pass, low_pass)
     
-    # 4. Multi-scale mixing
     if num_scales > 1:
         noise = create_multiscale_noise(noise, num_scales)
     
-    # 5. Mix with Gaussian
     if gaussian_mix > 0:
         noise = mix_with_gaussian(noise, gaussian_mix)
     
-    # Prepare for output
-    if len(shape) == 4:
+    # Ensure final shape matches target shape
+    if len(shape) == 4 and len(noise.shape) == 3:  # Need batch dim
         noise = noise.unsqueeze(0)
-        if shape[0] > 1:
+        if shape[0] > 1:  # Need multiple batches
             noise = noise.expand(shape[0], -1, -1, -1)
     
     return noise.to(device)
